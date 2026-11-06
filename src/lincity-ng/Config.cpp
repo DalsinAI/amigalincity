@@ -45,7 +45,11 @@ Config::Config()
     assert(configPtr == 0);
 
     //Default Values
+#ifdef __amigaos__
+    useOpenGL = false;  // SDL's own painter on AmigaOS; Options can change it
+#else
     useOpenGL = true;  //OpenGL is often way too slow
+#endif
     useFullScreen = true;
     videoX = 1024;
     videoY = 768;
