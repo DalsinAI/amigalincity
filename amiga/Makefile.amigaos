@@ -1,0 +1,109 @@
+# LinCity-NG 2.12.0 for AmigaOS 3.x, 68040/68060 + FPU, on OpenGPU's SDL 2.
+#
+#   make -f amiga/Makefile.amigaos -j2 dist \
+#        STOVE=/path/to/openamigagcc-16.2.0-open4 \
+#        NDK=/path/to/OpenNDK/Include_H SDL2KIT=/path/to/opengpu-sdk \
+#        DEPS=/path/to/m68k-amigaos
+#
+# The game as upstream's CMake builds it (src/tinygettext, PhysfsStream,
+# gui with both painters, lincity, lincity/modules and lincity-ng, and
+# external/physfsrwops), with amiga/config.h for CMake's, PhysicsFS 3.2.0
+# with its AmigaOS platform (amiga/physfs, from the Team's DXX-Rebirth
+# port) and SDL2_gfx 1.0.4's primitives and rotozoom (amiga/sdl2_gfx).
+# SDL2KIT is the OpenGPU developer kit (SDL2, SDL2_image, SDL2_mixer,
+# SDL2_ttf, GL: the program's halves of LIBS:OpenGPU's modules). DEPS has
+# the Team's static libxml2 and zlib (/mnt/amigachrome/team2/deps/m68k-amigaos).
+
+STOVE   ?= $(HOME)/CradleLab/toolchain/openamigagcc-16.2.0-open4-x86_64-linux
+NDK     ?= $(HOME)/CradleLab/gfopensdk/OpenNDK/Include_H
+SDL2KIT ?= /mnt/amigachrome/team2/deps/opengpu-sdk
+DEPS    ?= /mnt/amigachrome/team2/deps/m68k-amigaos
+CC      = $(STOVE)/bin/m68k-amigaos-gcc
+CXX     = $(STOVE)/bin/m68k-amigaos-g++
+AR      = $(STOVE)/bin/m68k-amigaos-ar
+STRIP   = $(STOVE)/bin/m68k-amigaos-strip
+CPU     ?= -m68040 -m68881
+# -fno-tree-loop-distribute-patterns: GCC 16's loop miscompile (the kit's
+# sdl2-config gives it for GCC 16 too).
+OPT     ?= -O2 -fomit-frame-pointer -fno-tree-loop-distribute-patterns
+
+BUILD   = build/amigaos
+OBJDIR  = $(BUILD)/obj
+PROG    = LinCity-NG
+OUT     = dist/LinCity-NG
+
+DEFS    = -D__amigaos__ -DNDEBUG
+INC     = -Iamiga -Isrc -Isrc/gui -Isrc/lincity-ng -Iexternal/physfsrwops -Iamiga/physfs \
+          -Iamiga/sdl2_gfx -I$(SDL2KIT)/include -I$(SDL2KIT)/include/SDL2 \
+          -I$(DEPS)/include -I$(DEPS)/include/libxml2
+CFLAGS  = -noixemul $(OPT) $(CPU) -fno-common -MMD -MP -w
+CXXFLAGS = $(CFLAGS) -std=gnu++17 -include amiga/amiga_prefix.hpp
+LDFLAGS = -noixemul $(CPU)
+LIBS    = -L$(SDL2KIT)/lib -L$(DEPS)/lib -lSDL2_mixer -lSDL2_image -lSDL2_ttf \
+          -lSDL2 -lGL -lxml2 -lz -lpthread -latomic -lm
+
+GUI_SRC = $(wildcard src/gui/*.cpp) $(wildcard src/gui/PainterGL/*.cpp) \
+          $(wildcard src/gui/PainterSDL/*.cpp)
+GAME_SRC = $(wildcard src/tinygettext/*.cpp) $(wildcard src/PhysfsStream/*.cpp) \
+          $(GUI_SRC) $(wildcard src/lincity/*.cpp) $(wildcard src/lincity/modules/*.cpp) \
+          $(filter-out src/lincity-ng/getBundleSharePath.cpp src/lincity-ng/Debug.cpp,$(wildcard src/lincity-ng/*.cpp))
+C_SRC   = src/lincity-ng/lc_error.c external/physfsrwops/physfsrwops.c \
+          amiga/sdl2_gfx/SDL2_gfxPrimitives.c amiga/sdl2_gfx/SDL2_rotozoom.c amiga/amiga_compat.c amiga/stack.c
+PHYSFS_SRC = $(wildcard amiga/physfs/*.c)
+PHYSFS_CFLAGS = -noixemul -O2 $(CPU) -std=gnu99 -w -DNDEBUG \
+          -DPHYSFS_SUPPORTS_DEFAULT=0 -DPHYSFS_SUPPORTS_ZIP=1 -I$(NDK)
+
+OBJS    = $(GAME_SRC:%.cpp=$(OBJDIR)/%.o) $(C_SRC:%.c=$(OBJDIR)/%.o) \
+          $(PHYSFS_SRC:%.c=$(OBJDIR)/%.o)
+ICONS   = $(wildcard amiga/icons/*.info)
+
+all: $(BUILD)/$(PROG)
+
+$(BUILD)/$(PROG): $(OBJS)
+	$(CXX) $(LDFLAGS) -o $@.debug $(OBJS) $(LIBS)
+	$(STRIP) -o $@ $@.debug
+
+$(OBJDIR)/amiga/physfs/%.o: amiga/physfs/%.c
+	@mkdir -p $(dir $@)
+	$(CC) $(PHYSFS_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) $(DEFS) $(INC) -c -o $@ $<
+
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -std=gnu99 $(DEFS) $(INC) -c -o $@ $<
+
+# The drawer: the program; data/ with what upstream's CMake installs
+# (fonts, help, images' PNGs and XMLs, the .po translations, music,
+# opening/*.scn.gz, sounds, lincityconfig.xml, and gui/'s XMLs, copied as
+# they are: their xsltproc pass is an identity transform); not the 3D
+# models nor the editors' files. ReadMe, the licences and upstream's notes.
+dist: $(BUILD)/$(PROG) $(ICONS) AMIGA_PORT.md
+	rm -rf $(OUT) && mkdir -p $(OUT)/data
+	cp $(BUILD)/$(PROG) $(OUT)/
+	rsync -a --prune-empty-dirs --include='*/' \
+	  --include='/fonts/**' --include='/help/**' \
+	  --include='/images/**.png' --include='/images/**.xml' \
+	  --include='/locale/**.po' --include='/music/**' \
+	  --include='/opening/*.scn.gz' --include='/sounds/**' \
+	  --include='/lincityconfig.xml' --include='/gui/*.xml' \
+	  --include='/gui/dialogs/*.xml' --exclude='*' data/ $(OUT)/data/
+	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp COPYING $(OUT)/COPYING.txt
+	cp COPYING-data.txt COPYING-fonts.txt README.md CHANGELOG.md $(OUT)/
+	cp amiga/sdl2_gfx/COPYING $(OUT)/COPYING-SDL2_gfx.txt
+	cp amiga/physfs/LICENSE.txt $(OUT)/COPYING-PhysicsFS.txt
+	cp amiga/icons/LinCity-NG.info amiga/icons/ReadMe.info $(OUT)/
+	for f in COPYING.txt COPYING-data.txt COPYING-fonts.txt README.md CHANGELOG.md \
+	  COPYING-SDL2_gfx.txt COPYING-PhysicsFS.txt; do cp amiga/icons/ReadMe.info $(OUT)/$$f.info; done
+	cp amiga/icons/Folder.info $(OUT)/data.info
+	cp amiga/icons/LinCity-NG-drawer.info dist/LinCity-NG.info
+
+-include $(OBJS:.o=.d)
+
+clean:
+	rm -rf $(BUILD)
+
+.PHONY: all clean dist

@@ -192,6 +192,19 @@ void initPhysfs(const char* argv0)
     // Initialize physfs (this is a slightly modified version of
     // PHYSFS_setSaneConfig
     const char* writedir = PHYSFS_getPrefDir(LC_ORG, LC_APP);
+#ifdef __amigaos__
+    // The pref dir is the drawer, "Work:LinCity-NG/". The game puts a "/"
+    // between the write dir and a file's name, and to AmigaDOS "//" is the
+    // parent drawer, so the saves would go beside the drawer: no "/" at the
+    // end here.
+    static std::string amigaWritedir;
+    if(writedir) {
+      amigaWritedir = writedir;
+      if(amigaWritedir.size() > 1 && amigaWritedir.back() == '/')
+        amigaWritedir.pop_back();
+      writedir = amigaWritedir.c_str();
+    }
+#endif
     if(!writedir) {
       std::ostringstream msg;
       // Unfortunately, PHYSFS_getPrefDir does not expose the path name if
@@ -575,7 +588,12 @@ int main(int argc, char** argv)
     try {
 #endif
         xmlInitParser ();
+#ifdef __amigaos__
+        // OpenGPU's SDL2 has no sensors, haptics or game controllers.
+        if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) < 0) {
+#else
         if(SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+#endif
             std::stringstream msg;
             msg << "Couldn't initialize SDL: " << SDL_GetError();
             throw std::runtime_error(msg.str());
