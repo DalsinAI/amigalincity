@@ -91,6 +91,7 @@ dist: $(BUILD)/$(PROG) $(ICONS) AMIGA_PORT.md
 	  --include='/lincityconfig.xml' --include='/gui/*.xml' \
 	  --include='/gui/dialogs/*.xml' --exclude='*' data/ $(OUT)/data/
 	cp AMIGA_PORT.md $(OUT)/ReadMe
+	cp amiga/Controls $(OUT)/Controls
 	cp COPYING $(OUT)/COPYING.txt
 	cp COPYING-data.txt COPYING-fonts.txt README.md CHANGELOG.md $(OUT)/
 	cp amiga/sdl2_gfx/COPYING $(OUT)/COPYING-SDL2_gfx.txt
