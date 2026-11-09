@@ -98,7 +98,6 @@ dist: $(BUILD)/$(PROG) $(ICONS) AMIGA_PORT.md
 	cp amiga/icons/LinCity-NG.info amiga/icons/ReadMe.info $(OUT)/
 	for f in COPYING.txt COPYING-data.txt COPYING-fonts.txt README.md CHANGELOG.md \
 	  COPYING-SDL2_gfx.txt COPYING-PhysicsFS.txt; do cp amiga/icons/ReadMe.info $(OUT)/$$f.info; done
-	cp amiga/icons/Folder.info $(OUT)/data.info
 	cp amiga/icons/LinCity-NG-drawer.info dist/LinCity-NG.info
 
 -include $(OBJS:.o=.d)
