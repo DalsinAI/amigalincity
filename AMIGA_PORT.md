@@ -84,7 +84,9 @@ What was changed
   the game adds one and "//" is the parent drawer to AmigaDOS.
 - src/lincity-ng/Config.cpp: OpenGL off by default.
 - PhysicsFS 3.2.0 with the Team's AmigaOS platform (amiga/physfs, from the
-  DXX-Rebirth port: the pref dir is the program's drawer) and SDL2_gfx
+  DXX-Rebirth port: the pref dir is the program's drawer; its locks are
+  signal semaphores, as the game reads files from its SDL loader threads
+  too) and SDL2_gfx
   1.0.4's primitives and rotozoom (amiga/sdl2_gfx) are built in.
 - amiga/amiga_prefix.hpp: the C++ streams first in every file (the
   toolchain's pthread.h wraps read() in a macro once <unistd.h> is in),

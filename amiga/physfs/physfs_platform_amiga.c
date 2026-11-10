@@ -7,7 +7,7 @@
  * "Work:Games/Descent/" opens "Work:Games/Descent" and "DH0:/data" opens
  * "DH0:data". The base, user and pref dirs are all the program's own
  * drawer (PROGDIR:), so settings and saves live beside the program.
- * One task, so the mutexes are no-ops.
+ * The mutexes are signal semaphores, as games read from more than one task.
  *
  * Added for AmigaOS by the AmiCradle Team; zlib licence, like PhysicsFS.
  */
@@ -18,6 +18,8 @@
 #ifdef PHYSFS_PLATFORM_AMIGA
 
 #include <exec/types.h>
+#include <exec/memory.h>
+#include <exec/semaphores.h>
 #include <dos/dos.h>
 #include <dos/dosextens.h>
 #include <proto/exec.h>
@@ -398,29 +400,37 @@ int __PHYSFS_platformStat(const char *filename, PHYSFS_Stat *st, const int follo
 } /* __PHYSFS_platformStat */
 
 
-/* One task: nothing to lock. */
+/* Real locks: a game may read through PhysicsFS from more than one task
+   (LinCity-NG loads its sounds and images on SDL threads while the main
+   task reads too), and unguarded, the open-file and error lists get
+   corrupted. A signal semaphore nests for the task that holds it, as
+   PhysicsFS needs. */
 void *__PHYSFS_platformCreateMutex(void)
 {
-    return (void *) 1;
+    struct SignalSemaphore *s = (struct SignalSemaphore *)
+        AllocVec(sizeof(struct SignalSemaphore), MEMF_PUBLIC | MEMF_CLEAR);
+    BAIL_IF(!s, PHYSFS_ERR_OUT_OF_MEMORY, NULL);
+    InitSemaphore(s);
+    return s;
 } /* __PHYSFS_platformCreateMutex */
 
 
 void __PHYSFS_platformDestroyMutex(void *mutex)
 {
-    (void) mutex;
+    FreeVec(mutex);
 } /* __PHYSFS_platformDestroyMutex */
 
 
 int __PHYSFS_platformGrabMutex(void *mutex)
 {
-    (void) mutex;
+    ObtainSemaphore((struct SignalSemaphore *) mutex);
     return 1;
 } /* __PHYSFS_platformGrabMutex */
 
 
 void __PHYSFS_platformReleaseMutex(void *mutex)
 {
-    (void) mutex;
+    ReleaseSemaphore((struct SignalSemaphore *) mutex);
 } /* __PHYSFS_platformReleaseMutex */
 
 #endif  /* PHYSFS_PLATFORM_AMIGA */
