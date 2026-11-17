@@ -1,0 +1,21 @@
+{
+  "name": "LinCity-NG",
+  "version": "2.12.0-amiga5-rc1",
+  "drawer": "LinCity-NG",
+  "program": "LinCity-NG",
+  "cpu": "68040",
+  "fpu": true,
+  "space": 40000000,
+  "modules": [
+    "SDL2.module",
+    "SDL2_image.module",
+    "SDL2_mixer.module",
+    "SDL2_ttf.module",
+    "GL.module"
+  ],
+  "keep": [
+    "userconfig.xml"
+  ],
+  "parent": "Work:Games",
+  "badge": "../amiga/icons/art/lincity.png"
+}
